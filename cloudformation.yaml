@@ -1,14 +1,17 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "UCU Cloud Computing Final Project"
 Resources:
-  DummyServer:
-    Type: "AWS::EC2::Instance"
-    Properties:
-      ImageId: ""
+  S3Bucket:
+    Type: 'AWS::S3::Bucket'
+
+Outputs:
+  BucketName:
+    Description: 'S3 Bucket Name'
+    Value: !Ref S3Bucket
 
 # TODO List
-# create site v1 (index and 404)
-# cf for creating bucket
+# create site v1 (index and 404) - done
+# cf for creating bucket -
 # cf for creating cloudfront
 # cf for SPA
 # cf for auto deploy from s3 to cloudfront
@@ -16,3 +19,5 @@ Resources:
 # create site v2 (login and sendfile)
 # cf for lambda
 # cf for Identity
+
+# publish to GitHub
