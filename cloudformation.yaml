@@ -1,0 +1,18 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "UCU Cloud Computing Final Project"
+Resources:
+  DummyServer:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      ImageId: ""
+
+# TODO List
+# create site v1 (index and 404)
+# cf for creating bucket
+# cf for creating cloudfront
+# cf for SPA
+# cf for auto deploy from s3 to cloudfront
+
+# create site v2 (login and sendfile)
+# cf for lambda
+# cf for Identity
