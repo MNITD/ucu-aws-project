@@ -49,6 +49,8 @@ Resources:
     Properties:
       MfaConfiguration: "OFF"
       UserPoolName: user-pool-one
+      AutoVerifiedAttributes:
+        - email
       UsernameAttributes:
         - email
       Policies:
@@ -70,6 +72,7 @@ Resources:
         - "https://www.google.com"
       LogoutURLs:
         - "https://www.google.com"
+      AllowedOAuthFlowsUserPoolClient: true
       AllowedOAuthFlows:
         - implicit
       AllowedOAuthScopes:
