@@ -1,7 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "UCU Cloud Computing Final Project"
 Resources:
-
   S3Bucket:
     Type: 'AWS::S3::Bucket'
   S3BucketReadPolicy:
@@ -45,6 +44,43 @@ Resources:
               OriginAccessIdentity: !Sub 'origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}'
         PriceClass: 'PriceClass_All'
 
+  CognitoUserPool:
+    Type: "AWS::Cognito::UserPool"
+    Properties:
+      MfaConfiguration: "OFF"
+      UserPoolName: user-pool-one
+      UsernameAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 10
+          RequireLowercase: False
+          RequireNumbers: True
+          RequireSymbols: False
+          RequireUppercase: True
+  CognitoUserPoolClient:
+    Type: "AWS::Cognito::UserPoolClient"
+    Properties:
+      ClientName: user-pool-client-one
+      GenerateSecret: False
+      UserPoolId: !Ref CognitoUserPool
+      SupportedIdentityProviders:
+        - COGNITO
+      CallbackURLs:
+        - "https://www.google.com"
+      LogoutURLs:
+        - "https://www.google.com"
+      AllowedOAuthFlows:
+        - implicit
+      AllowedOAuthScopes:
+        - email
+        - openid
+  CognitoUserPoolDomain:
+    Type: "AWS::Cognito::UserPoolDomain"
+    Properties:
+      Domain: user-pool-01
+      UserPoolId: !Ref CognitoUserPool
+
 Outputs:
   BucketName:
     Description: 'S3 Bucket Name'
@@ -55,6 +91,15 @@ Outputs:
   Domain:
     Description: 'CloudFront Domain Name'
     Value: !GetAtt CloudFrontDistribution.DomainName
+  AuthDomain:
+    Description: 'Cognito Domain'
+    Value:
+      !Sub
+        - '${Domain}.auth.${Region}.amazoncognito.com'
+        - { Domain: !Ref CognitoUserPoolDomain, Region: !Ref 'AWS::Region' }
+  ClientId:
+    Description: 'Cognito Client ID'
+    Value: !Ref CognitoUserPoolClient
 
 # TODO List
 # create site v1 (index and 404) - done
@@ -62,13 +107,17 @@ Outputs:
 # cf for creating cloudfront - done
 
 # cf for lambda
-# cf for Identity
+# cf for auth - done
 
-# cf for SPA
 # create site v2 (login and sendfile)
 # add SSL certificate for domain (https)
+
+# cf for SPA
+# setup svelte in site folder
 
 # cf for programmatic access to bucket
 # script for publishing site's files to bucket
 
 # publish to GitHub
+
+# https://user-pool-01.auth.us-east-2.amazoncognito.com/login?response_type=token&client_id=tpfe7r3tg7e7118079p3iplpm&redirect_uri=https%3A%2F%2Fwww.google.com
