@@ -1,5 +1,14 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "UCU Cloud Computing Final Project"
+Parameters:
+  LambdaFunctionName:
+    Type: "String"
+    AllowedPattern: "^[a-zA-Z0-9]+[a-zA-Z0-9-]+[a-zA-Z0-9]+$"
+    Default: "echo"
+  ApiGatewayStageName:
+    Type: "String"
+    AllowedPattern: "^[a-z0-9]+$"
+    Default: "api"
 Resources:
   S3Bucket:
     Type: 'AWS::S3::Bucket'
@@ -81,8 +90,95 @@ Resources:
   CognitoUserPoolDomain:
     Type: "AWS::Cognito::UserPoolDomain"
     Properties:
-      Domain: user-pool-01
+      Domain: ucu-project
       UserPoolId: !Ref CognitoUserPool
+
+  ApiGateway:
+    Type: "AWS::ApiGateway::RestApi"
+    Properties:
+      Name: api-gateway
+  ApiGatewayRootMethod:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      AuthorizationType: "NONE"
+      HttpMethod: "POST"
+      Integration:
+        IntegrationHttpMethod: "POST"
+        Type: "AWS_PROXY"
+        Uri: !Sub
+          - "arn:aws:apigateway:${Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
+          - { LambdaArn: !GetAtt "LambdaFunction.Arn", Region: !Ref 'AWS::Region' }
+      ResourceId: !GetAtt "ApiGateway.RootResourceId"
+      RestApiId: !Ref "ApiGateway"
+  ApiGatewayDeployment:
+    Type: "AWS::ApiGateway::Deployment"
+    DependsOn:
+      - "ApiGatewayRootMethod"
+    Properties:
+      RestApiId: !Ref ApiGateway
+      StageName: !Ref ApiGatewayStageName
+
+  LambdaFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Code:
+        ZipFile: |
+          def handler(event, context):
+            return {
+              'body': 'Hello there {0}'.format(event['requestContext']['identity']['sourceIp']),
+              'headers': {
+                'Content-Type': 'text/plain'
+              },
+              'statusCode': 200
+            }
+      Description: "My function"
+      FunctionName: !Ref LambdaFunctionName
+      Handler: "index.handler"
+      MemorySize: 128
+      Role: !GetAtt "LambdaIAMRole.Arn"
+      Runtime: "python3.7" # TODO change to node
+      Timeout: 10
+  LambdaApiGatewayInvoke:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !GetAtt "LambdaFunction.Arn"
+      Principal: "apigateway.amazonaws.com"
+      SourceArn:
+        !Sub
+          - "arn:aws:execute-api:${Region}:${AccountId}:${ApiGateway}/*/POST/"
+          - { Region: !Ref 'AWS::Region', AccountId: !Ref 'AWS::AccountId' }
+  LambdaIAMRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action:
+              - "sts:AssumeRole"
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+      Policies:
+        - PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Effect: "Allow"
+                Resource:
+                  - !Sub
+                    - "arn:aws:logs:${Region}:${AccountId}:log-group:/aws/lambda/${LambdaFunctionName}:*"
+                    - { Region: !Ref 'AWS::Region', AccountId: !Ref 'AWS::AccountId' }
+          PolicyName: "lambda"
+  LambdaLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${LambdaFunctionName}"
+      RetentionInDays: 90
 
 Outputs:
   BucketName:
@@ -103,13 +199,25 @@ Outputs:
   ClientId:
     Description: 'Cognito Client ID'
     Value: !Ref CognitoUserPoolClient
+  ApiURL:
+    Value:
+      !Sub
+        - "https://${ApiGateway}.execute-api.${Region}.amazonaws.com/${ApiGatewayStageName}"
+        - { Region: !Ref 'AWS::Region' }
+  LambdaArn:
+    Value: !GetAtt "LambdaFunction.Arn"
 
 # TODO List
 # create site v1 (index and 404) - done
 # cf for creating bucket - done
 # cf for creating cloudfront - done
 
-# cf for lambda
+# cf for lambda base - done
+# cf for lambda in separate file
+# cf for lambda getting user id
+# cf for lambda protected with Authorizer
+# cf for lambda accessing bucket
+# cf for lambda accessing dynamo
 # cf for auth - done
 
 # create site v2 (login and sendfile)
