@@ -29,6 +29,23 @@ Resources:
     Properties:
       AccessControl: Private
 
+  UserFilesTable:
+    Type: 'AWS::DynamoDB::Table'
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: fileCreatedAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: fileCreatedAt
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 10
+
   CloudFrontOriginAccessIdentity:
     Type: 'AWS::CloudFront::CloudFrontOriginAccessIdentity'
     Properties:
@@ -133,10 +150,15 @@ Resources:
 
           def handler(event, context):
             bucket_name = os.environ['BucketName']
-            print(bucket_name)
+            table_name = os.environ['TableName']
+            print('bucket_name', bucket_name)
+            print('table_name', table_name)
 
             s3 = boto3.client('s3')
             print(s3.list_objects(Bucket=bucket_name))
+
+            dynamodb = boto3.client('dynamodb')
+            print(dynamodb.describe_table(TableName=table_name))
 
             return {
               'body': 'Hello there {0}'.format(event['requestContext']['identity']['sourceIp']),
@@ -156,16 +178,14 @@ Resources:
       Environment:
         Variables:
           BucketName: !Ref FileStorage
+          TableName: !Ref UserFilesTable
   LambdaApiGatewayInvoke:
     Type: "AWS::Lambda::Permission"
     Properties:
       Action: "lambda:InvokeFunction"
       FunctionName: !GetAtt "LambdaFunction.Arn"
       Principal: "apigateway.amazonaws.com"
-      SourceArn:
-        !Sub
-          - "arn:aws:execute-api:${Region}:${AccountId}:${ApiGateway}/*/POST/"
-          - { Region: !Ref 'AWS::Region', AccountId: !Ref 'AWS::AccountId' }
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/POST/"
   LambdaIAMRole:
     Type: "AWS::IAM::Role"
     Properties:
@@ -188,9 +208,7 @@ Resources:
                   - "logs:PutLogEvents"
                 Effect: "Allow"
                 Resource:
-                  - !Sub
-                    - "arn:aws:logs:${Region}:${AccountId}:log-group:/aws/lambda/${LambdaFunctionName}:*"
-                    - { Region: !Ref 'AWS::Region', AccountId: !Ref 'AWS::AccountId' }
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${LambdaFunctionName}:*"
           PolicyName: "lambda-logs"
         - PolicyDocument:
             Version: "2012-10-17"
@@ -201,6 +219,15 @@ Resources:
                   - !Sub "arn:aws:s3:::${FileStorage}"
                   - !Sub "arn:aws:s3:::${FileStorage}/*"
           PolicyName: "lambda-s3"
+        - PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action: "*"
+                Effect: "Allow"
+                Resource:
+                  - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${UserFilesTable}"
+                  - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${UserFilesTable}/stream/*"
+          PolicyName: "lambda-dynamo"
   LambdaLogGroup:
     Type: "AWS::Logs::LogGroup"
     Properties:
@@ -227,10 +254,7 @@ Outputs:
     Description: 'Cognito Client ID'
     Value: !Ref CognitoUserPoolClient
   ApiURL:
-    Value:
-      !Sub
-        - "https://${ApiGateway}.execute-api.${Region}.amazonaws.com/${ApiGatewayStageName}"
-        - { Region: !Ref 'AWS::Region' }
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiGatewayStageName}"
   LambdaArn:
     Value: !GetAtt "LambdaFunction.Arn"
 
@@ -242,7 +266,7 @@ Outputs:
 # cf for lambda base - done
 # cf for lambda in separate file
 # cf for lambda accessing bucket - done
-# cf for lambda accessing dynamo
+# cf for lambda accessing dynamo - done
 # cf for lambda getting user id
 
 # write lambda logic (save file) -
