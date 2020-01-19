@@ -35,12 +35,12 @@ Resources:
       AttributeDefinitions:
         - AttributeName: userId
           AttributeType: S
-        - AttributeName: fileCreatedAt
+        - AttributeName: fileId
           AttributeType: S
       KeySchema:
         - AttributeName: userId
           KeyType: HASH
-        - AttributeName: fileCreatedAt
+        - AttributeName: fileId
           KeyType: RANGE
       ProvisionedThroughput:
         ReadCapacityUnits: 5
@@ -119,23 +119,29 @@ Resources:
     Type: "AWS::ApiGateway::RestApi"
     Properties:
       Name: api-gateway
-  ApiGatewayRootMethod:
+  ProxyResource:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      ParentId: !GetAtt "ApiGateway.RootResourceId"
+      RestApiId: !Ref "ApiGateway"
+      PathPart: '{proxy+}'
+  RootMethod:
     Type: "AWS::ApiGateway::Method"
     Properties:
       AuthorizationType: "NONE"
-      HttpMethod: "POST"
+      HttpMethod: "ANY"
       Integration:
         IntegrationHttpMethod: "POST"
         Type: "AWS_PROXY"
         Uri: !Sub
-          - "arn:aws:apigateway:${Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
-          - { LambdaArn: !GetAtt "LambdaFunction.Arn", Region: !Ref 'AWS::Region' }
-      ResourceId: !GetAtt "ApiGateway.RootResourceId"
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
+          - { LambdaArn: !GetAtt "LambdaFunction.Arn" }
+      ResourceId: !Ref "ProxyResource"
       RestApiId: !Ref "ApiGateway"
   ApiGatewayDeployment:
     Type: "AWS::ApiGateway::Deployment"
     DependsOn:
-      - "ApiGatewayRootMethod"
+      - "RootMethod"
     Properties:
       RestApiId: !Ref ApiGateway
       StageName: !Ref ApiGatewayStageName
@@ -148,17 +154,39 @@ Resources:
           import os
           import boto3
 
+          bucket_name = os.environ['BucketName']
+          table_name = os.environ['TableName']
+
           def handler(event, context):
-            bucket_name = os.environ['BucketName']
-            table_name = os.environ['TableName']
-            print('bucket_name', bucket_name)
-            print('table_name', table_name)
+            print(event, context)
 
-            s3 = boto3.client('s3')
-            print(s3.list_objects(Bucket=bucket_name))
+            path = event['path'].split('/')
+            if path[1] == 'files':
+              httpMethod = event.get('httpMethod')
+              if len(path) > 2:
+                if httpMethod == 'GET':
+                  print('get file', path[2])
+                if httpMethod == 'DELETE':
+                  print('delete file', path[2])
+              elif httpMethod == 'POST':
+                print('post file')
+              elif httpMethod == 'GET':
+                print('get files')
+            else:
+              return {
+                'body': 'Resourse not found',
+                'headers': {
+                  'Content-Type': 'text/plain',
+                  'Access-Control-Allow-Origin': '*'
+                },
+                'statusCode': 404
+              }
 
-            dynamodb = boto3.client('dynamodb')
-            print(dynamodb.describe_table(TableName=table_name))
+            # s3 = boto3.client('s3')
+            # print(s3.list_objects(Bucket=bucket_name))
+
+            # dynamodb = boto3.client('dynamodb')
+            # dynmodb.get_item()
 
             return {
               'body': 'Hello there {0}'.format(event['requestContext']['identity']['sourceIp']),
@@ -185,7 +213,7 @@ Resources:
       Action: "lambda:InvokeFunction"
       FunctionName: !GetAtt "LambdaFunction.Arn"
       Principal: "apigateway.amazonaws.com"
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/POST/"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/*/*"
   LambdaIAMRole:
     Type: "AWS::IAM::Role"
     Properties:
@@ -264,27 +292,25 @@ Outputs:
 # cf for creating cloudfront - done
 
 # cf for lambda base - done
-# cf for lambda in separate file
+# cf for lambda in separate file -
 # cf for lambda accessing bucket - done
 # cf for lambda accessing dynamo - done
-# cf for lambda getting user id
+# cf for lambda getting user id -
 
 # write lambda logic (save file) -
 # write lambda logic (delete file) -
 # write lambda logic (get files) -
 
 # cf for auth - done
-# cf for lambda protected with Authorizer
+# cf for lambda protected with Authorizer -
 
-# create site v2 (login and sendfile)
-# add SSL certificate for domain (https)
+# create site v2 (login and sendfile) -
+# add SSL certificate for domain (https) -
 
-# cf for SPA
-# setup svelte in site folder
+# cf for SPA -
+# setup svelte in site folder -
 
-# cf for programmatic access to bucket
-# script for publishing site's files to bucket
+# cf for programmatic access to bucket -
+# script for publishing site's files to bucket -
 
-# publish to GitHub
-
-# https://user-pool-01.auth.us-east-2.amazoncognito.com/login?response_type=token&client_id=tpfe7r3tg7e7118079p3iplpm&redirect_uri=https%3A%2F%2Fwww.google.com
+# publish to GitHub -
