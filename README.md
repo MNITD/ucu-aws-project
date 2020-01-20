@@ -1,3 +1,21 @@
+# UCU AWS Project
+Final project of UCU cloud computing course 
+
+## About
+Cloudformation template creates following resources:
+ - S3 bucket for storing files
+ - DynamoDB table for storing files' associated information 
+ - Lambda function for performing manipulation on S3 and DynamoDB
+ - APIGateWay for mapping http requests to Lambda
+ - CloudFormation for hosting site
+ - Cognito as IdP for authorizing users
+ - Other supporting resources (Roles, Groups, Policies, etc)
+ 
+Site that is stored on one of S3 buckets provide access for the following screens:
+ - Home screen (general info, login btn, profile btn)
+ - Profile screen (files list, upload file, delete file)
+
+
 ## AWS CLI
 
 Get created stacks names
