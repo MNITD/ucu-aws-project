@@ -7,7 +7,7 @@ Cloudformation template creates following resources:
  - DynamoDB table for storing files' associated information 
  - Lambda function for performing manipulation on S3 and DynamoDB
  - APIGateWay for mapping http requests to Lambda
- - CloudFormation for hosting site
+ - CloudFront for faster site distribution
  - Cognito as IdP for authorizing users
  - Other supporting resources (Roles, Groups, Policies, etc)
  
