@@ -152,24 +152,71 @@ Resources:
       Code:
         ZipFile: |
           import os
+          import uuid
+          import time
+          import json
           import boto3
+          import base64
+          import re
 
           bucket_name = os.environ['BucketName']
           table_name = os.environ['TableName']
+
+          headers = {'Content-Type':'application/json','Access-Control-Allow-Origin':'*'}
 
           def handler(event, context):
             print(event, context)
 
             path = event['path'].split('/')
             if path[1] == 'files':
+              dynamodb = boto3.resource('dynamodb').Table(table_name)
+              s3 = boto3.client('s3')
               httpMethod = event.get('httpMethod')
+              auth_token = event['headers']['Authorization'].split('Bearer ')[1] + "==="
+              decoded = str(base64.b64decode(auth_token))
+              user_id = re.findall(r'(?<=sub":").+(?=","aud)', decoded)[0]
+
               if len(path) > 2:
                 if httpMethod == 'GET':
-                  print('get file', path[2])
+                  file_id = path[2]
+                  print('get file', file_id)
+
+                  print(file_id, user_id)
+                  item = dynamodb.get_item(
+                    Key={
+                      'userId': user_id,
+                      'fileId': file_id,
+                    }
+                  ).get('Item')
+                  if item != None:
+                    obj = s3.get_object(Bucket=bucket_name, Key=file_id)['Body'].read()
+
+                    res = {
+                      'file': str(base64.b64encode(obj), "utf-8"),
+                      'fileName': item.get('fileName'),
+                      'createdAt': str(item.get('createdAt'))
+                    }
+                    return {'body': json.dumps(res), 'headers': headers,'statusCode':200}
+                  else:
+                    return {'body':json.dumps({'error': 'File not found'}),'headers':headers,'statusCode':404}
                 if httpMethod == 'DELETE':
                   print('delete file', path[2])
               elif httpMethod == 'POST':
                 print('post file')
+
+                body = json.loads(event['body'])
+                file_content = base64.b64decode(body.get('file'))
+                file_name = body.get('name')
+                file_id = str(uuid.uuid4())
+                s3.put_object(Bucket=bucket_name, Key=file_id, Body=file_content)
+                item = {
+                  'userId': user_id,
+                  'fileId': file_id,
+                  'fileName': file_name,
+                  'createdAt': int(time.time())
+                }
+                dynamodb.put_item(Item=item)
+                return {'body':json.dumps(item),'headers':headers,'statusCode':200}
               elif httpMethod == 'GET':
                 print('get files')
             else:
@@ -185,15 +232,9 @@ Resources:
             # s3 = boto3.client('s3')
             # print(s3.list_objects(Bucket=bucket_name))
 
-            # dynamodb = boto3.client('dynamodb')
-            # dynmodb.get_item()
-
             return {
-              'body': 'Hello there {0}'.format(event['requestContext']['identity']['sourceIp']),
-              'headers': {
-                'Content-Type': 'text/plain',
-                'Access-Control-Allow-Origin': '*'
-              },
+              'body': json.dumps({'message': 'Hello there {0}'.format(event['requestContext']['identity']['sourceIp'])}),
+              'headers': headers,
               'statusCode': 200
             }
       Description: "My function"
@@ -295,9 +336,9 @@ Outputs:
 # cf for lambda in separate file -
 # cf for lambda accessing bucket - done
 # cf for lambda accessing dynamo - done
-# cf for lambda getting user id -
+# cf for lambda getting user id - done
 
-# write lambda logic (save file) -
+# write lambda logic (save file) - done
 # write lambda logic (delete file) -
 # write lambda logic (get files) -
 
