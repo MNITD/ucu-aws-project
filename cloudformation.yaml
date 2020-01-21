@@ -10,19 +10,49 @@ Parameters:
     AllowedPattern: "^[a-z0-9]+$"
     Default: "api"
 Resources:
-  S3Bucket:
-    Type: 'AWS::S3::Bucket'
-  S3BucketReadPolicy:
-    Type: 'AWS::S3::BucketPolicy'
-    Properties:
-      Bucket: !Ref S3Bucket
-      PolicyDocument:
-        Statement:
-          - Action: 's3:GetObject'
-            Effect: Allow
-            Resource: !Sub 'arn:aws:s3:::${S3Bucket}/*'
-            Principal:
-              CanonicalUser: !GetAtt CloudFrontOriginAccessIdentity.S3CanonicalUserId
+#  S3Bucket:
+#    Type: 'AWS::S3::Bucket'
+#  S3BucketReadPolicy:
+#    Type: 'AWS::S3::BucketPolicy'
+#    Properties:
+#      Bucket: !Ref S3Bucket
+#      PolicyDocument:
+#        Statement:
+#          - Action: 's3:GetObject'
+#            Effect: Allow
+#            Resource: !Sub 'arn:aws:s3:::${S3Bucket}/*'
+#            Principal:
+#              CanonicalUser: !GetAtt CloudFrontOriginAccessIdentity.S3CanonicalUserId
+
+#  CloudFrontOriginAccessIdentity:
+#    Type: 'AWS::CloudFront::CloudFrontOriginAccessIdentity'
+#    Properties:
+#      CloudFrontOriginAccessIdentityConfig:
+#        Comment: !Ref S3Bucket
+#  CloudFrontDistribution:
+#    Type: 'AWS::CloudFront::Distribution'
+#    Properties:
+#      DistributionConfig:
+#        CustomErrorResponses:
+#          - ErrorCode: 403
+#            ResponseCode: 404
+#            ResponsePagePath: "/404.html"
+#        DefaultRootObject: "index.html"
+#        DefaultCacheBehavior:
+#          Compress: true
+#          ForwardedValues:
+#            QueryString: false
+#          TargetOriginId: s3-bucket-one
+#          ViewerProtocolPolicy: allow-all
+#        Enabled: true
+#        HttpVersion: http2
+#        Origins:
+#          - DomainName: !GetAtt S3Bucket.DomainName
+#            Id: s3-bucket-one
+#            S3OriginConfig:
+#              OriginAccessIdentity: !Sub 'origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}'
+#        PriceClass: 'PriceClass_All'
+
 
   FileStorage:
     Type: 'AWS::S3::Bucket'
@@ -46,34 +76,6 @@ Resources:
         ReadCapacityUnits: 5
         WriteCapacityUnits: 10
 
-  CloudFrontOriginAccessIdentity:
-    Type: 'AWS::CloudFront::CloudFrontOriginAccessIdentity'
-    Properties:
-      CloudFrontOriginAccessIdentityConfig:
-        Comment: !Ref S3Bucket
-  CloudFrontDistribution:
-    Type: 'AWS::CloudFront::Distribution'
-    Properties:
-      DistributionConfig:
-        CustomErrorResponses:
-          - ErrorCode: 403
-            ResponseCode: 404
-            ResponsePagePath: "/404.html"
-        DefaultRootObject: "index.html"
-        DefaultCacheBehavior:
-          Compress: true
-          ForwardedValues:
-            QueryString: false
-          TargetOriginId: s3-bucket-one
-          ViewerProtocolPolicy: allow-all
-        Enabled: true
-        HttpVersion: http2
-        Origins:
-          - DomainName: !GetAtt S3Bucket.DomainName
-            Id: s3-bucket-one
-            S3OriginConfig:
-              OriginAccessIdentity: !Sub 'origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}'
-        PriceClass: 'PriceClass_All'
 
   CognitoUserPool:
     Type: "AWS::Cognito::UserPool"
@@ -119,16 +121,36 @@ Resources:
     Type: "AWS::ApiGateway::RestApi"
     Properties:
       Name: api-gateway
-  ProxyResource:
+  ApiGatewayAuthorizer:
+    Type: 'AWS::ApiGateway::Authorizer'
+    DependsOn:
+      - ApiGateway
+    Properties:
+      Name: cognito-authorizer
+      IdentitySource: method.request.header.Authorization
+      RestApiId: !Ref ApiGateway
+      Type: "COGNITO_USER_POOLS"
+      ProviderARNs:
+        - !GetAtt "CognitoUserPool.Arn"
+
+  FilesResource:
     Type: 'AWS::ApiGateway::Resource'
     Properties:
       ParentId: !GetAtt "ApiGateway.RootResourceId"
-      RestApiId: !Ref "ApiGateway"
-      PathPart: '{proxy+}'
-  RootMethod:
+      RestApiId: !Ref ApiGateway
+      PathPart: 'files'
+  FileResource:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      ParentId: !Ref FilesResource
+      RestApiId: !Ref ApiGateway
+      PathPart: '{fileid}'
+
+  FilesMethod:
     Type: "AWS::ApiGateway::Method"
     Properties:
-      AuthorizationType: "NONE"
+      AuthorizerId: !Ref ApiGatewayAuthorizer
+      AuthorizationType: "COGNITO_USER_POOLS"
       HttpMethod: "ANY"
       Integration:
         IntegrationHttpMethod: "POST"
@@ -136,12 +158,96 @@ Resources:
         Uri: !Sub
           - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
           - { LambdaArn: !GetAtt "LambdaFunction.Arn" }
-      ResourceId: !Ref "ProxyResource"
-      RestApiId: !Ref "ApiGateway"
+      MethodResponses:
+        - ResponseModels:
+            application/json: "Empty"
+          StatusCode: "200"
+      ResourceId: !Ref FilesResource
+      RestApiId: !Ref ApiGateway
+  FileMethod:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      AuthorizerId: !Ref ApiGatewayAuthorizer
+      AuthorizationType: "COGNITO_USER_POOLS"
+      HttpMethod: "ANY"
+      Integration:
+        IntegrationHttpMethod: "POST"
+        Type: "AWS_PROXY"
+        Uri: !Sub
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations"
+          - { LambdaArn: !GetAtt "LambdaFunction.Arn" }
+      MethodResponses:
+        - ResponseModels:
+            application/json: "Empty"
+          StatusCode: "200"
+      ResourceId: !Ref FileResource
+      RestApiId: !Ref ApiGateway
+  OptionsMethod1:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      AuthorizationType: "NONE"
+      RestApiId: !Ref ApiGateway
+      ResourceId: !Ref FilesResource
+      HttpMethod: "OPTIONS"
+      Integration:
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'DELETE,GET,HEAD,OPTIONS,PATCH,POST,PUT'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        PassthroughBehavior: "WHEN_NO_MATCH"
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        Type: "MOCK"
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            application/json: 'Empty'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: false
+            method.response.header.Access-Control-Allow-Methods: false
+            method.response.header.Access-Control-Allow-Origin: false
+  OptionsMethod2:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      AuthorizationType: "NONE"
+      RestApiId: !Ref ApiGateway
+      ResourceId: !Ref FileResource
+      HttpMethod: "OPTIONS"
+      Integration:
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'DELETE,GET,HEAD,OPTIONS,PATCH,POST,PUT'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        PassthroughBehavior: "WHEN_NO_MATCH"
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        Type: "MOCK"
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            application/json: 'Empty'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: false
+            method.response.header.Access-Control-Allow-Methods: false
+            method.response.header.Access-Control-Allow-Origin: false
+
   ApiGatewayDeployment:
     Type: "AWS::ApiGateway::Deployment"
     DependsOn:
-      - "RootMethod"
+      - "FilesResource"
+      - "FileResource"
+      - "FilesMethod"
+      - "FileMethod"
+      - "OptionsMethod1"
+      - "OptionsMethod2"
     Properties:
       RestApiId: !Ref ApiGateway
       StageName: !Ref ApiGatewayStageName
@@ -162,7 +268,13 @@ Resources:
           bucket_name = os.environ['BucketName']
           table_name = os.environ['TableName']
 
-          headers = {'Content-Type':'application/json','Access-Control-Allow-Origin':'*'}
+          headers = {
+            'Content-Type':'application/json',
+            'Access-Control-Allow-Origin':'*',
+            'Access-Control-Allow-Methods':'*',
+            'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+            'Access-Control-Allow-Credentials' : 'true'
+          }
 
           def handler(event, context):
             print(event, context)
@@ -172,8 +284,8 @@ Resources:
               dynamodb = boto3.resource('dynamodb').Table(table_name)
               s3 = boto3.client('s3')
               httpMethod = event.get('httpMethod')
-              auth_token = event['headers']['Authorization'].split('Bearer ')[1] + "==="
-              decoded = str(base64.b64decode(auth_token))
+              token = event['headers']['Authorization']
+              decoded = str(base64.b64decode(token.split('.')[1] + '==='))
               user_id = re.findall(r'(?<=sub":").+(?=","aud)', decoded)[0]
 
               if len(path) > 2:
@@ -222,15 +334,9 @@ Resources:
             else:
               return {
                 'body': 'Resourse not found',
-                'headers': {
-                  'Content-Type': 'text/plain',
-                  'Access-Control-Allow-Origin': '*'
-                },
+                'headers': headers,
                 'statusCode': 404
               }
-
-            # s3 = boto3.client('s3')
-            # print(s3.list_objects(Bucket=bucket_name))
 
             return {
               'body': json.dumps({'message': 'Hello there {0}'.format(event['requestContext']['identity']['sourceIp'])}),
@@ -242,7 +348,7 @@ Resources:
       Handler: "index.handler"
       MemorySize: 128
       Role: !GetAtt "LambdaIAMRole.Arn"
-      Runtime: "python3.7" # TODO change to node
+      Runtime: "python3.7"
       Timeout: 10
       Environment:
         Variables:
@@ -304,21 +410,21 @@ Resources:
       RetentionInDays: 90
 
 Outputs:
-  BucketName:
-    Description: 'S3 Bucket Name'
-    Value: !Ref S3Bucket
-  DistributionId:
-    Description: 'CloudFront Distribution ID'
-    Value: !Ref CloudFrontDistribution
-  Domain:
-    Description: 'CloudFront Domain Name'
-    Value: !GetAtt CloudFrontDistribution.DomainName
-  AuthDomain:
+#  BucketName:
+#    Description: 'S3 Bucket Name'
+#    Value: !Ref S3Bucket
+#  DistributionId:
+#    Description: 'CloudFront Distribution ID'
+#    Value: !Ref CloudFrontDistribution
+#  Domain:
+#    Description: 'CloudFront Domain Name'
+#    Value: !GetAtt CloudFrontDistribution.DomainName
+  AuthURL:
     Description: 'Cognito Domain'
     Value:
       !Sub
-        - '${Domain}.auth.${Region}.amazoncognito.com'
-        - { Domain: !Ref CognitoUserPoolDomain, Region: !Ref 'AWS::Region' }
+        - '${Domain}.auth.${Region}.amazoncognito.com/login?response_type=token&client_id=${ClientId}&redirect_uri=${RedirectUri}'
+        - { Domain: !Ref CognitoUserPoolDomain, Region: !Ref 'AWS::Region', ClientId: !Ref CognitoUserPoolClient, RedirectUri: 'https%3A%2F%2Fwww.google.com' }
   ClientId:
     Description: 'Cognito Client ID'
     Value: !Ref CognitoUserPoolClient
@@ -343,7 +449,7 @@ Outputs:
 # write lambda logic (get files) -
 
 # cf for auth - done
-# cf for lambda protected with Authorizer -
+# cf for lambda protected with Authorizer - done
 
 # create site v2 (login and sendfile) -
 # add SSL certificate for domain (https) -
@@ -355,3 +461,6 @@ Outputs:
 # script for publishing site's files to bucket -
 
 # publish to GitHub -
+
+# id_token=eyJraWQiOiJOMnhVTEhZNnB5YXdiYU00SnNEck1zbU05NWZNSEJMK3RlS1Z4SWxCVGpjPSIsImFsZyI6IlJTMjU2In0.eyJhdF9oYXNoIjoiOWdzejVlUmRBWFozZXpYWWdlVUVRQSIsInN1YiI6IjBmNmMyYzkwLWEwMTUtNGJmZC04OWFjLTBmNWExMDA1ZWI1NiIsImF1ZCI6IjR1dW5majBlbHVtOWt0b29tcThmN3EwazFuIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImV2ZW50X2lkIjoiMmM1NWI5YzAtNWMyYS00N2U4LTg5ZDYtMjcwMjNlNWUwMjUzIiwidG9rZW5fdXNlIjoiaWQiLCJhdXRoX3RpbWUiOjE1Nzk1NzAyMTQsImlzcyI6Imh0dHBzOlwvXC9jb2duaXRvLWlkcC51cy1lYXN0LTIuYW1hem9uYXdzLmNvbVwvdXMtZWFzdC0yX1FkYzIwVmlWTyIsImNvZ25pdG86dXNlcm5hbWUiOiIwZjZjMmM5MC1hMDE1LTRiZmQtODlhYy0wZjVhMTAwNWViNTYiLCJleHAiOjE1Nzk1NzM4MTQsImlhdCI6MTU3OTU3MDIxNCwiZW1haWwiOiJncmVhdGJvZ2RhbnNtaXRoQGdtYWlsLmNvbSJ9.vnXdrG816gmaJJOKM82ZsqieHK4zvvQW8B5sME8bLQjWO9rTmOhfzT2oOR4XZk78xk3dHrhOvlIJdj3gpSpoAb9y0PdkDZBqBKXjoz3m54txcQbBph7kMPcNM_aU0XDENMGwNcEdFQVPDVzvwTWFpapKjFNzPlQIlT38lim2OaIS33ahYW3g1e03JBD0e9V2gIShHmv8GGPE-px1XBxjxJ1aMHAWGWxoQundnAMli920BfbbLz0-FwamQym6kKXAUPoKJGNSvW-ax7hDAXz_evdTy6W3tGedkY5ujbPysV9Zt7_AxMKnZjqJxfMqy30qW6BlKacoDaWiae19zuZn2w
+# access_token=eyJraWQiOiJkVVhuczNPeTRoMm9MZDNqV2xSVjErMitHeDVySVhpV2hJbEVacUUzSnJNPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiIwZjZjMmM5MC1hMDE1LTRiZmQtODlhYy0wZjVhMTAwNWViNTYiLCJldmVudF9pZCI6IjJjNTViOWMwLTVjMmEtNDdlOC04OWQ2LTI3MDIzZTVlMDI1MyIsInRva2VuX3VzZSI6ImFjY2VzcyIsInNjb3BlIjoib3BlbmlkIGVtYWlsIiwiYXV0aF90aW1lIjoxNTc5NTcwMjE0LCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0yLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMl9RZGMyMFZpVk8iLCJleHAiOjE1Nzk1NzM4MTQsImlhdCI6MTU3OTU3MDIxNCwidmVyc2lvbiI6MiwianRpIjoiNDJiYmM5OTMtMWM5Mi00YmM2LWFjOTctZWMyOTdhZjYxODE2IiwiY2xpZW50X2lkIjoiNHV1bmZqMGVsdW05a3Rvb21xOGY3cTBrMW4iLCJ1c2VybmFtZSI6IjBmNmMyYzkwLWEwMTUtNGJmZC04OWFjLTBmNWExMDA1ZWI1NiJ9.UesDW2h0BwWxbCjhccC_B4b8SsFhNu1vJznfR14QbfxaFmr5sYtWJeUxgYVQcfsX15qUrJHazckzcSl-Iy8BaCFjdokk9JQhHCcumfr0Z8MBXHae9AMcVPrdTDnHVLzJmZKvQUhXAoEF40nlNfn_Gp8d43bxwCUcdOQiVhGALemp2pg7PrRtMdWgvfZ91wBFyN9HctXGOMpsZeTaMBYJIvpPBGDgz2ihS6AC5wx4Lozb_DapWrkFyGzI1viDJnDGgbUcqLQyZYOQKzX3iK43gLNnj5ntuoyOWGhhcFmvEt558QAxQseL8b3dResvBlhjOkV-asjYXnAfEqv_IvbwuQ
