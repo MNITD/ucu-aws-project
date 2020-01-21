@@ -1,8 +1,8 @@
 import {get} from 'svelte/store'
 import {authStore} from '../stores/authStore'
 
-const API_URL = process.env.API_URL  || 'https://id7095ia4i.execute-api.us-east-2.amazonaws.com/api'
-const AUTH_URL = process.env.AUTH_URL || 'https://ucu-project.auth.us-east-2.amazoncognito.com/login?response_type=token&client_id=4uunfj0elum9ktoomq8f7q0k1n&redirect_uri=http%3A%2F%2Flocalhost%3A3001'
+const API_URL = process.env.API_URL
+const AUTH_URL = process.env.AUTH_URL
 
 const headers = {
   'Authorization': '',

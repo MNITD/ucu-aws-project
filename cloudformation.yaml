@@ -468,8 +468,8 @@ Outputs:
     Description: 'Cognito Domain'
     Value:
       !Sub
-        - '${Domain}.auth.${Region}.amazoncognito.com/login?response_type=token&client_id=${ClientId}&redirect_uri=${RedirectUri}'
-        - { Domain: !Ref CognitoUserPoolDomain, Region: !Ref 'AWS::Region', ClientId: !Ref CognitoUserPoolClient, RedirectUri: !Sub 'https%3A%2F%2F${!GetAtt CloudFrontDistribution.DomainName}' }
+        - '${Domain}.auth.${Region}.amazoncognito.com/login?response_type=token&client_id=${ClientId}&redirect_uri=https%3A%2F%2F${RedirectUri}'
+        - { Domain: !Ref CognitoUserPoolDomain, Region: !Ref 'AWS::Region', ClientId: !Ref CognitoUserPoolClient, RedirectUri: !GetAtt CloudFrontDistribution.DomainName }
   ClientId:
     Description: 'Cognito Client ID'
     Value: !Ref CognitoUserPoolClient
