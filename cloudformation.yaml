@@ -411,7 +411,10 @@ Resources:
         - PolicyDocument:
             Version: "2012-10-17"
             Statement:
-              - Action: "*"
+              - Action:
+                  - "s3:PutObject"
+                  - "s3:GetObject"
+                  - "s3:DeleteObject"
                 Effect: "Allow"
                 Resource:
                   - !Sub "arn:aws:s3:::${FileStorage}"
@@ -420,7 +423,11 @@ Resources:
         - PolicyDocument:
             Version: "2012-10-17"
             Statement:
-              - Action: "*"
+              - Action:
+                  - "dynamodb:PutItem"
+                  - "dynamodb:GetItem"
+                  - "dynamodb:DeleteItem"
+                  - "dynamodb:Query"
                 Effect: "Allow"
                 Resource:
                   - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${UserFilesTable}"
@@ -457,33 +464,12 @@ Outputs:
     Value: !GetAtt "LambdaFunction.Arn"
 
 # TODO List
-# create site v1 (index and 404) - done
-# cf for creating bucket - done
-# cf for creating cloudfront - done
-
-# cf for lambda base - done
-# cf for lambda in separate file -
-# cf for lambda accessing bucket - done
-# cf for lambda accessing dynamo - done
-# cf for lambda getting user id - done
-
-# write lambda logic (save file) - done
-# write lambda logic (delete file) - done
-# write lambda logic (get files) - done
-
-# cf for auth - done
-# cf for lambda protected with Authorizer - done
-
 # create site v2 (login and sendfile) -
 # add SSL certificate for domain (https) -
+# cf for lambda in separate file -
 
 # cf for SPA -
 # setup svelte in site folder -
 
 # cf for programmatic access to bucket -
 # script for publishing site's files to bucket -
-
-# publish to GitHub -
-
-# id_token=eyJraWQiOiJOMnhVTEhZNnB5YXdiYU00SnNEck1zbU05NWZNSEJMK3RlS1Z4SWxCVGpjPSIsImFsZyI6IlJTMjU2In0.eyJhdF9oYXNoIjoiOWdzejVlUmRBWFozZXpYWWdlVUVRQSIsInN1YiI6IjBmNmMyYzkwLWEwMTUtNGJmZC04OWFjLTBmNWExMDA1ZWI1NiIsImF1ZCI6IjR1dW5majBlbHVtOWt0b29tcThmN3EwazFuIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImV2ZW50X2lkIjoiMmM1NWI5YzAtNWMyYS00N2U4LTg5ZDYtMjcwMjNlNWUwMjUzIiwidG9rZW5fdXNlIjoiaWQiLCJhdXRoX3RpbWUiOjE1Nzk1NzAyMTQsImlzcyI6Imh0dHBzOlwvXC9jb2duaXRvLWlkcC51cy1lYXN0LTIuYW1hem9uYXdzLmNvbVwvdXMtZWFzdC0yX1FkYzIwVmlWTyIsImNvZ25pdG86dXNlcm5hbWUiOiIwZjZjMmM5MC1hMDE1LTRiZmQtODlhYy0wZjVhMTAwNWViNTYiLCJleHAiOjE1Nzk1NzM4MTQsImlhdCI6MTU3OTU3MDIxNCwiZW1haWwiOiJncmVhdGJvZ2RhbnNtaXRoQGdtYWlsLmNvbSJ9.vnXdrG816gmaJJOKM82ZsqieHK4zvvQW8B5sME8bLQjWO9rTmOhfzT2oOR4XZk78xk3dHrhOvlIJdj3gpSpoAb9y0PdkDZBqBKXjoz3m54txcQbBph7kMPcNM_aU0XDENMGwNcEdFQVPDVzvwTWFpapKjFNzPlQIlT38lim2OaIS33ahYW3g1e03JBD0e9V2gIShHmv8GGPE-px1XBxjxJ1aMHAWGWxoQundnAMli920BfbbLz0-FwamQym6kKXAUPoKJGNSvW-ax7hDAXz_evdTy6W3tGedkY5ujbPysV9Zt7_AxMKnZjqJxfMqy30qW6BlKacoDaWiae19zuZn2w
-# access_token=eyJraWQiOiJkVVhuczNPeTRoMm9MZDNqV2xSVjErMitHeDVySVhpV2hJbEVacUUzSnJNPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiIwZjZjMmM5MC1hMDE1LTRiZmQtODlhYy0wZjVhMTAwNWViNTYiLCJldmVudF9pZCI6IjJjNTViOWMwLTVjMmEtNDdlOC04OWQ2LTI3MDIzZTVlMDI1MyIsInRva2VuX3VzZSI6ImFjY2VzcyIsInNjb3BlIjoib3BlbmlkIGVtYWlsIiwiYXV0aF90aW1lIjoxNTc5NTcwMjE0LCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0yLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMl9RZGMyMFZpVk8iLCJleHAiOjE1Nzk1NzM4MTQsImlhdCI6MTU3OTU3MDIxNCwidmVyc2lvbiI6MiwianRpIjoiNDJiYmM5OTMtMWM5Mi00YmM2LWFjOTctZWMyOTdhZjYxODE2IiwiY2xpZW50X2lkIjoiNHV1bmZqMGVsdW05a3Rvb21xOGY3cTBrMW4iLCJ1c2VybmFtZSI6IjBmNmMyYzkwLWEwMTUtNGJmZC04OWFjLTBmNWExMDA1ZWI1NiJ9.UesDW2h0BwWxbCjhccC_B4b8SsFhNu1vJznfR14QbfxaFmr5sYtWJeUxgYVQcfsX15qUrJHazckzcSl-Iy8BaCFjdokk9JQhHCcumfr0Z8MBXHae9AMcVPrdTDnHVLzJmZKvQUhXAoEF40nlNfn_Gp8d43bxwCUcdOQiVhGALemp2pg7PrRtMdWgvfZ91wBFyN9HctXGOMpsZeTaMBYJIvpPBGDgz2ihS6AC5wx4Lozb_DapWrkFyGzI1viDJnDGgbUcqLQyZYOQKzX3iK43gLNnj5ntuoyOWGhhcFmvEt558QAxQseL8b3dResvBlhjOkV-asjYXnAfEqv_IvbwuQ
