@@ -84,7 +84,7 @@
     const file = document.getElementById('file-loader').files[0]
 
     if(file) {
-      const base64 = await blobToBase64(file).split('base64,')[1]
+      const base64 = (await blobToBase64(file)).split('base64,')[1]
 
       addFile({file: base64, name: file.name}).then(loadData)
     }
