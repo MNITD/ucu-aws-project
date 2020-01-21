@@ -9,12 +9,15 @@
   loadData()
 
   const saveFile = async () => {
-    const file = document.getElementById('file-loader').files[0]
+    const input = document.getElementById('file-loader')
+    const file = input.files[0]
 
     if (file) {
       const base64 = (await blobToBase64(file)).split('base64,')[1]
 
-      addFile({file: base64, name: file.name}).then(loadData)
+      await addFile({file: base64, name: file.name}).then(loadData)
+
+      input.value = ''
     }
   }
 

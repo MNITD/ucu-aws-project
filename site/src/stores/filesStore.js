@@ -9,7 +9,7 @@ const createStore = () => {
   return {
     subscribe,
     loadFiles: (files) => update(state => ({
-      ids: files.map(f => f.fileId),
+      ids: files.sort((a, b) => a.createdAt - b.createdAt).map(f => f.fileId),
       byId: files.reduce((acc, f) => ({...acc, [f.fileId]: {...acc[f.fileId], ...f}}), state.byId),
     })),
     addFileUrl: (file) => update(state => ({
