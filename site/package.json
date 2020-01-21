@@ -22,6 +22,8 @@
     "serve": "serve public -n -s"
   },
   "dependencies": {
+    "mime-types": "^2.1.26",
+    "rambda": "^4.4.0",
     "svelte-routing": "^1.4.0"
   }
 }

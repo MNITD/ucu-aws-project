@@ -1,8 +1,8 @@
 import {get} from 'svelte/store'
 import {authStore} from '../stores/authStore'
 
-const API_URL = process.env.API_URL
-const AUTH_URL = process.env.AUTH_URL
+const API_URL = process.env.API_URL  || 'https://id7095ia4i.execute-api.us-east-2.amazonaws.com/api'
+const AUTH_URL = process.env.AUTH_URL || 'https://ucu-project.auth.us-east-2.amazoncognito.com/login?response_type=token&client_id=4uunfj0elum9ktoomq8f7q0k1n&redirect_uri=http%3A%2F%2Flocalhost%3A3001'
 
 const headers = {
   'Authorization': '',
@@ -23,11 +23,11 @@ export const logout = () => {
 }
 export const getFile = checkAuth((fileId, headers) => fetch(`${API_URL}/files/${fileId}`, {headers}))
 export const getFiles = checkAuth((headers) => fetch(`${API_URL}/files`, {headers}))
-export const addFile = checkAuth((data, headers) => fetch(`${API_URL}/files`, {
+export const addFile = checkAuth((data, headers) => { console.log('data', data); return fetch(`${API_URL}/files`, {
   method: 'POST',
   body: JSON.stringify(data),
   headers,
-}))
+})})
 export const deleteFile = checkAuth((fileId, headers) => fetch(`${API_URL}/files/${fileId}`, {
   method: 'DELETE',
   headers,
