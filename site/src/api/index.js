@@ -23,11 +23,11 @@ export const logout = () => {
 }
 export const getFile = checkAuth((fileId, headers) => fetch(`${API_URL}/files/${fileId}`, {headers}))
 export const getFiles = checkAuth((headers) => fetch(`${API_URL}/files`, {headers}))
-export const addFile = checkAuth((data, headers) => { console.log('data', data); return fetch(`${API_URL}/files`, {
+export const addFile = checkAuth((data, headers) => fetch(`${API_URL}/files`, {
   method: 'POST',
   body: JSON.stringify(data),
   headers,
-})})
+}))
 export const deleteFile = checkAuth((fileId, headers) => fetch(`${API_URL}/files/${fileId}`, {
   method: 'DELETE',
   headers,
