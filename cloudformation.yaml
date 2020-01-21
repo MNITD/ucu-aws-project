@@ -287,11 +287,11 @@ Resources:
               user_id = event['requestContext']['authorizer']['claims']['sub']
 
               if len(path) > 2:
+                file_id = path[2]
+
                 if httpMethod == 'GET':
-                  file_id = path[2]
                   print('get file', file_id)
 
-                  print(file_id, user_id)
                   item = dynamodb.get_item(
                     Key={
                       'userId': user_id,
@@ -311,6 +311,24 @@ Resources:
                     return {'body':json.dumps({'error': 'File not found'}),'headers':headers,'statusCode':404}
                 if httpMethod == 'DELETE':
                   print('delete file', path[2])
+
+                  item = dynamodb.get_item(
+                    Key={
+                      'userId': user_id,
+                      'fileId': file_id,
+                    }
+                  ).get('Item')
+                  if item != None:
+                    dynamodb.delete_item(
+                      Key={
+                        'userId': user_id,
+                        'fileId': file_id,
+                      }
+                    )
+                    s3.delete_object(Bucket=bucket_name, Key=file_id)
+                  else:
+                    return {'body':json.dumps({'error': 'File not found'}),'headers':headers,'statusCode':404}
+
               elif httpMethod == 'POST':
                 print('post file')
 
@@ -329,6 +347,7 @@ Resources:
                 return {'body':json.dumps(item),'headers':headers,'statusCode':200}
               elif httpMethod == 'GET':
                 print('get files')
+
             else:
               return {
                 'body': 'Resourse not found',
@@ -443,7 +462,7 @@ Outputs:
 # cf for lambda getting user id - done
 
 # write lambda logic (save file) - done
-# write lambda logic (delete file) -
+# write lambda logic (delete file) - done
 # write lambda logic (get files) -
 
 # cf for auth - done
