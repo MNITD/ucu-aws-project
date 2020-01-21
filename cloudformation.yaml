@@ -464,12 +464,12 @@ Outputs:
     Value: !GetAtt "LambdaFunction.Arn"
 
 # TODO List
-# create site v2 (login and sendfile) -
+# create site v2 (login and sendfile) - done
 # add SSL certificate for domain (https) -
 # cf for lambda in separate file -
 
 # cf for SPA -
-# setup svelte in site folder -
+# setup svelte in site folder - done
 
 # cf for programmatic access to bucket -
 # script for publishing site's files to bucket -
