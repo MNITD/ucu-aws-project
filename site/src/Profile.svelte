@@ -1,83 +1,9 @@
 <script>
-  import {getFiles, deleteFile, addFile} from './api'
+  import {getFile, getFiles, deleteFile, addFile} from './api'
   import {blobToBase64} from './utils'
+  import {fileStore} from './stores/filesStore'
 
-  let files = [
-    {
-      'createdAt': '1579575783',
-      'fileName': 'my_file.png',
-      'userId': '0f6c2c90-a015-4bfd-89ac-0f5a1005eb56',
-      'fileId': '16035fa2-f6ee-49a2-b83a-9b923e0bd215',
-    },
-    {
-      'createdAt': '1579575783',
-      'fileName': 'my_file.png',
-      'userId': '0f6c2c90-a015-4bfd-89ac-0f5a1005eb56',
-      'fileId': '16035fa2-f6ee-49a2-b83a-9b923e0bd215',
-    },
-    {
-      'createdAt': '1579575783',
-      'fileName': 'my_file.png',
-      'userId': '0f6c2c90-a015-4bfd-89ac-0f5a1005eb56',
-      'fileId': '16035fa2-f6ee-49a2-b83a-9b923e0bd215',
-    },
-    {
-      'createdAt': '1579575783',
-      'fileName': 'my_file.png',
-      'userId': '0f6c2c90-a015-4bfd-89ac-0f5a1005eb56',
-      'fileId': '16035fa2-f6ee-49a2-b83a-9b923e0bd215',
-    },
-    {
-      'createdAt': '1579575783',
-      'fileName': 'my_file.png',
-      'userId': '0f6c2c90-a015-4bfd-89ac-0f5a1005eb56',
-      'fileId': '16035fa2-f6ee-49a2-b83a-9b923e0bd215',
-    },
-    {
-      'createdAt': '1579575783',
-      'fileName': 'my_file.png',
-      'userId': '0f6c2c90-a015-4bfd-89ac-0f5a1005eb56',
-      'fileId': '16035fa2-f6ee-49a2-b83a-9b923e0bd215',
-    },
-    {
-      'createdAt': '1579575783',
-      'fileName': 'my_file.png',
-      'userId': '0f6c2c90-a015-4bfd-89ac-0f5a1005eb56',
-      'fileId': '16035fa2-f6ee-49a2-b83a-9b923e0bd215',
-    },
-    {
-      'createdAt': '1579575783',
-      'fileName': 'my_file.png',
-      'userId': '0f6c2c90-a015-4bfd-89ac-0f5a1005eb56',
-      'fileId': '16035fa2-f6ee-49a2-b83a-9b923e0bd215',
-    },
-    {
-      'createdAt': '1579575783',
-      'fileName': 'my_file.png',
-      'userId': '0f6c2c90-a015-4bfd-89ac-0f5a1005eb56',
-      'fileId': '16035fa2-f6ee-49a2-b83a-9b923e0bd215',
-    },
-    {
-      'createdAt': '1579575783',
-      'fileName': 'my_file.png',
-      'userId': '0f6c2c90-a015-4bfd-89ac-0f5a1005eb56',
-      'fileId': '16035fa2-f6ee-49a2-b83a-9b923e0bd215',
-    },
-    {
-      'createdAt': '1579575783',
-      'fileName': 'my_file.png',
-      'userId': '0f6c2c90-a015-4bfd-89ac-0f5a1005eb56',
-      'fileId': '16035fa2-f6ee-49a2-b83a-9b923e0bd215',
-    },
-    {
-      'createdAt': '1579575783',
-      'fileName': 'my_file.png',
-      'userId': '0f6c2c90-a015-4bfd-89ac-0f5a1005eb56',
-      'fileId': '16035fa2-f6ee-49a2-b83a-9b923e0bd215',
-    },
-  ]
-
-  const loadData = () => getFiles().then(res => res.json()).then(data => files = data)
+  const loadData = () => getFiles().then(res => res.json()).then(data => fileStore.loadFiles(data))
   loadData()
 
   const saveFile = async () => {
@@ -88,6 +14,17 @@
 
       addFile({file: base64, name: file.name}).then(loadData)
     }
+  }
+
+  const onPreview = async fileId => {
+    const fileUrl = $fileStore.byId[fileId].url
+    !fileUrl && getFile(fileId).then(data => fileStore.addFileUrl({...data, fileId}))
+      const newWindow = window.open()
+      newWindow.document.write(`
+        <body style="padding:0; margin:0;">
+          <iframe width="100%" height="100%" style="border: none;" margin="0" padding="0" src="${$fileStore.byId[fileId].url}"></iframe>
+        </body>
+      `)
   }
 
 </script>
@@ -139,15 +76,15 @@
     <div class="col">Action</div>
   </div>
   <div class="scroller">
-  {#each files as file}
+  {#each $fileStore.ids as fileId}
     <div class="row">
-      <div class="col action">{file.fileId}</div>
-      <div class="col">{file.fileName}</div>
-      <div class="col">{file.createdAt}</div>
-      <div class="col delete" on:click={() => deleteFile(file.fileId)}>Delete</div>
+      <div class="col action" on:click={() => onPreview(fileId)}>{fileId}</div>
+      <div class="col">{$fileStore.byId[fileId].fileName}</div>
+      <div class="col">{$fileStore.byId[fileId].createdAt}</div>
+      <div class="col delete" on:click={() => deleteFile(fileId)}>Delete</div>
     </div>
   {:else}
-    No files found
+    <div style="margin-top: 150px">No files found</div>
   {/each}
   </div>
   <div class="row load-container">
