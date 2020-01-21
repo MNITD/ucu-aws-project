@@ -109,8 +109,14 @@ Resources:
       SupportedIdentityProviders:
         - COGNITO
       CallbackURLs:
+        - !Sub
+            - "https://${Domain}"
+            -  { Domain: !GetAtt CloudFrontDistribution.DomainName }
         - "http://localhost:3001"
       LogoutURLs:
+        - !Sub
+          - "https://${Domain}"
+          - { Domain: !GetAtt CloudFrontDistribution.DomainName }
         - "http://localhost:3001"
       AllowedOAuthFlowsUserPoolClient: true
       AllowedOAuthFlows:
@@ -118,6 +124,8 @@ Resources:
       AllowedOAuthScopes:
         - email
         - openid
+    DependsOn:
+      - CloudFrontDistribution
   CognitoUserPoolDomain:
     Type: "AWS::Cognito::UserPoolDomain"
     Properties:
@@ -461,7 +469,7 @@ Outputs:
     Value:
       !Sub
         - '${Domain}.auth.${Region}.amazoncognito.com/login?response_type=token&client_id=${ClientId}&redirect_uri=${RedirectUri}'
-        - { Domain: !Ref CognitoUserPoolDomain, Region: !Ref 'AWS::Region', ClientId: !Ref CognitoUserPoolClient, RedirectUri: 'http%3A%2F%2Flocalhost%3A3001' }
+        - { Domain: !Ref CognitoUserPoolDomain, Region: !Ref 'AWS::Region', ClientId: !Ref CognitoUserPoolClient, RedirectUri: !Sub 'https%3A%2F%2F${!GetAtt CloudFrontDistribution.DomainName}' }
   ClientId:
     Description: 'Cognito Client ID'
     Value: !Ref CognitoUserPoolClient
