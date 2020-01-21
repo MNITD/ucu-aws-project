@@ -263,7 +263,6 @@ Resources:
           import json
           import boto3
           import base64
-          import re
 
           bucket_name = os.environ['BucketName']
           table_name = os.environ['TableName']
@@ -277,16 +276,15 @@ Resources:
           }
 
           def handler(event, context):
-            print(event, context)
+            print(event, context.identity.cognito_identity_id)
 
             path = event['path'].split('/')
             if path[1] == 'files':
               dynamodb = boto3.resource('dynamodb').Table(table_name)
               s3 = boto3.client('s3')
+
               httpMethod = event.get('httpMethod')
-              token = event['headers']['Authorization']
-              decoded = str(base64.b64decode(token.split('.')[1] + '==='))
-              user_id = re.findall(r'(?<=sub":").+(?=","aud)', decoded)[0]
+              user_id = event['requestContext']['authorizer']['claims']['sub']
 
               if len(path) > 2:
                 if httpMethod == 'GET':
