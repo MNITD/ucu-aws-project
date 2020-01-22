@@ -1,8 +1,13 @@
 <script>
   import {onMount} from 'svelte'
+  import {Router, Route, navigate} from 'svelte-routing'
+
   import {authStore} from './stores/authStore'
   import {login, logout} from './api'
-  import Profile from './Profile.svelte'
+  import Files from './Files.svelte'
+  import Viewer from './Viewer.svelte'
+  import {routes} from './utils'
+
 
   let currentPage = 'home'
 
@@ -15,7 +20,7 @@
       localStorage.setItem('expirationTime', expirationTime)
       authStore.set({idToken, expirationTime})
 
-      document.location.href = '/'
+      navigate('/')
     }
   })
 
@@ -42,18 +47,24 @@
 <header>
   {#if $authStore.idToken}
     {#if currentPage === 'home'}
-      <button on:click={() => currentPage = 'profile'} style="margin-right: 10px">Profile</button>
+      <button on:click={() => navigate(routes.FILES)} style="margin-right: 10px">Files</button>
     {/if}
     <button on:click={logout}>Logout</button>
   {:else}
     <button on:click={login}>Login</button>
   {/if}
 </header>
+
 <main>
-  {#if currentPage === 'home'}
-    <h1>Welcome to Personal Bucket!</h1>
-    <p>The best file storage since 1970</p>
-  {:else}
-    <Profile/>
-  {/if}
+  <Router>
+    <Route path={routes.FILES} component={Files}/>
+    <Route path={`${routes.FILES}/:fileId`} let:params>
+      <Viewer fileId="{params.fileId}"/>
+    </Route>
+    <Route path={routes.HOME}>
+      <h1>Welcome to Personal Bucket!</h1>
+      <p>The best file storage since 1970</p>
+    </Route>
+  </Router>
 </main>
+
